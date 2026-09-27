@@ -207,7 +207,7 @@
     const mv = speed*dt;
     if (mv >= dist){
       boat.x = boat.tx; boat.y = boat.ty;
-      if (boat.y===rows-1 && boat.x===cols-1 && boat.dir===2){ win(); return; }
+      if (boat.x===cols-1 && boat.y>=rows-1){ boat.y = rows-1; win(); return; }
       // arrivato al centro: prova la svolta richiesta, altrimenti prosegui
       if (boat.want>=0 && open(boat.x,boat.y,boat.want) && !(boat.want===0&&boat.y===0)){
         boat.dir = boat.want; boat.want=-1; countTurn(boat.dir);
