@@ -106,7 +106,7 @@
     <h2>Approdo!</h2><p id="result"></p>
     <div class="actions">
       <button id="again">Gioca ancora</button>
-      <button id="next" class="secondary">Sali le scale verso la chiesa di San Pietro</button>
+      <button id="next" class="secondary">Sali le scale verso il monastero di San Cristoforo</button>
     </div>
   </div></div>
 </div>
@@ -304,7 +304,7 @@
   $('new').addEventListener('click', newGame);
   $('again').addEventListener('click', newGame);
   // URL del gioco "Chiusi nella Pieve" (chiesa di San Pietro): modifica qui
-  const NEXT_URL = './chiesa/index.html';
+  const NEXT_URL = 'https://escaperoomsancristoforo.netlify.app/';
   $('next').addEventListener('click', ()=>{ location.href = NEXT_URL; });
   $('lvl').addEventListener('click', ()=>{ level=(level+1)%LEVELS.length; newGame(); });
   addEventListener('resize', layout);
