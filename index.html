@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Labirinto d'acqua</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --bg: #F3EBDD;
+    --sand: #E6D6B8;
+    --sand-dark: #C9B48C;
+    --water: #0F8A96;
+    --water-deep: #0A6570;
+    --ink: #1E2A2E;
+    --muted: #6B7A7D;
+    --coral: #FF6A45;
+    --panel: #FFFFFF;
+    --btn: #FFFFFF;
+    --btn-shadow: rgba(30,42,46,.18);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10191C; --sand: #2A3A40; --sand-dark: #1C292E;
+      --water: #14A0AE; --water-deep: #0B6A74;
+      --ink: #F0F3F2; --muted: #93A3A6; --panel: #1A262B;
+      --btn: #223238; --btn-shadow: rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10191C; --sand: #2A3A40; --sand-dark: #1C292E;
+    --water: #14A0AE; --water-deep: #0B6A74;
+    --ink: #F0F3F2; --muted: #93A3A6; --panel: #1A262B;
+    --btn: #223238; --btn-shadow: rgba(0,0,0,.45);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+  body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "Nunito", "Segoe UI", system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+    -webkit-user-select: none; user-select: none; touch-action: none;
+  }
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 10px 16px 6px; gap: 12px;
+  }
+  header h1 { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -.01em; }
+  header h1 span { color: var(--water); }
+  .stats { display: flex; gap: 14px; font-weight: 600; color: var(--muted); font-size: 14px; }
+  .stats b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  #wrap { flex: 1; min-height: 0; position: relative; padding: 4px 10px; }
+  canvas { display: block; width: 100%; height: 100%; border-radius: 18px; touch-action: none; }
+  .controls {
+    display: grid; grid-template-columns: 64px 64px 64px; grid-template-rows: 64px 64px;
+    gap: 8px; justify-content: center; padding: 8px 0 14px;
+  }
+  .controls button {
+    border: 0; border-radius: 18px; background: var(--btn); color: var(--water);
+    font-size: 26px; box-shadow: 0 4px 12px var(--btn-shadow); cursor: pointer;
+    display: flex; align-items: center; justify-content: center; touch-action: none;
+  }
+  .controls button:active, .controls button.on { background: var(--water); color: #fff; transform: scale(.96); }
+  .controls button:focus-visible { outline: 3px solid var(--coral); outline-offset: 2px; }
+  #up { grid-column: 2; grid-row: 1; }
+  #left { grid-column: 1; grid-row: 2; }
+  #down { grid-column: 2; grid-row: 2; }
+  #right { grid-column: 3; grid-row: 2; }
+  .level { grid-column: 1; grid-row: 1; font-size: 13px !important; font-weight: 800; color: var(--ink) !important; }
+  .new { grid-column: 3; grid-row: 1; font-size: 13px !important; font-weight: 800; color: var(--ink) !important; }
+  #overlay {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    background: rgba(16,25,28,.45); border-radius: 18px; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; }
+  .card {
+    background: var(--panel); padding: 26px 28px; border-radius: 22px; text-align: center;
+    max-width: 280px; box-shadow: 0 20px 50px rgba(0,0,0,.3);
+  }
+  .card h2 { margin: 0 0 6px; font-size: 26px; font-weight: 800; }
+  .card p { margin: 0 0 18px; color: var(--muted); font-weight: 600; }
+  .card button {
+    border: 0; background: var(--water); color: #fff; font: inherit; font-weight: 800;
+    font-size: 16px; padding: 12px 22px; border-radius: 14px; cursor: pointer; width: 100%;
+  }
+  .card .actions { display: flex; flex-direction: column; gap: 10px; }
+  .card button.secondary { background: var(--coral); }
+  .hint { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; font-size: 13px;
+    color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.5); font-weight: 600; pointer-events: none;
+    transition: opacity .6s; }
+  @media (prefers-reduced-motion: reduce) { .controls button { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Labirinto <span>d'acqua</span></h1>
+  <div class="stats"><div>Tempo <b id="time">0:00</b></div><div>Svolte <b id="turns">0</b></div></div>
+</header>
+<div id="wrap">
+  <canvas id="c"></canvas>
+  <div class="hint" id="hint">Scorri col dito o usa le frecce per navigare</div>
+  <div id="overlay"><div class="card">
+    <h2>Approdo!</h2><p id="result"></p>
+    <div class="actions">
+      <button id="again">Gioca ancora</button>
+      <button id="next" class="secondary">Sali le scale verso la chiesa di San Pietro</button>
+    </div>
+  </div></div>
+</div>
+<div class="controls">
+  <button class="level" id="lvl" aria-label="Difficoltà">Medio</button>
+  <button id="up" aria-label="Su">▲</button>
+  <button class="new" id="new" aria-label="Nuovo labirinto">Nuovo</button>
+  <button id="left" aria-label="Sinistra">◀</button>
+  <button id="down" aria-label="Giù">▼</button>
+  <button id="right" aria-label="Destra">▶</button>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
+  const $ = id => document.getElementById(id);
+  const LEVELS = [{n:'Facile',c:7,r:9},{n:'Medio',c:11,r:15},{n:'Difficile',c:15,r:21}];
+  let level = 1, cols, rows, cells, cell, ox, oy, waterPath;
+  // dir: 0=N 1=E 2=S 3=W
+  const DX = [0,1,0,-1], DY = [-1,0,1,0];
+  const boat = { x:0, y:0, tx:0, ty:0, dir:2, moving:false, want:-1, angle:Math.PI/2 };
+  let startTime, finished, turns, lastDir, wake = [], reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+  function genMaze(){
+    cells = Array.from({length: rows}, () => Array.from({length: cols}, () => ({w:[1,1,1,1], seen:false})));
+    const stack = [[0,0]]; cells[0][0].seen = true;
+    while (stack.length){
+      const [x,y] = stack[stack.length-1];
+      const opts = [];
+      for (let d=0; d<4; d++){
+        const nx=x+DX[d], ny=y+DY[d];
+        if (nx>=0&&ny>=0&&nx<cols&&ny<rows&&!cells[ny][nx].seen) opts.push(d);
+      }
+      if (!opts.length){ stack.pop(); continue; }
+      const d = opts[Math.floor(Math.random()*opts.length)];
+      const nx=x+DX[d], ny=y+DY[d];
+      cells[y][x].w[d]=0; cells[ny][nx].w[(d+2)%4]=0; cells[ny][nx].seen=true;
+      stack.push([nx,ny]);
+    }
+    cells[0][0].w[0] = 0;               // ingresso in alto
+    cells[rows-1][cols-1].w[2] = 0;     // uscita in basso
+  }
+
+  function layout(){
+    const dpr = Math.min(devicePixelRatio||1, 2);
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    canvas.width = W*dpr; canvas.height = H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0);
+    cell = Math.floor(Math.min((W-24)/cols, (H-24)/rows));
+    ox = Math.round((W - cell*cols)/2); oy = Math.round((H - cell*rows)/2);
+    // percorso acqua (unione di rettangoli)
+    const ch = Math.round(cell*0.62), m = (cell-ch)/2;
+    waterPath = new Path2D();
+    for (let y=0;y<rows;y++) for (let x=0;x<cols;x++){
+      const cx = ox+x*cell, cy = oy+y*cell, c = cells[y][x];
+      waterPath.roundRect(cx+m, cy+m, ch, ch, ch*0.3);
+      if (!c.w[1]) waterPath.rect(cx+m+ch/2, cy+m, cell, ch);
+      if (!c.w[2]) waterPath.rect(cx+m, cy+m+ch/2, ch, cell);
+      if (y===0 && !c.w[0]) waterPath.rect(cx+m, cy-30, ch, cell);
+      if (y===rows-1 && !c.w[2]) waterPath.rect(cx+m, cy+m+ch/2, ch, cell+30);
+    }
+  }
+
+  function newGame(){
+    const L = LEVELS[level]; cols=L.c; rows=L.r; $('lvl').textContent = L.n;
+    genMaze(); layout();
+    Object.assign(boat, {x:0,y:0,tx:0,ty:0,dir:2,moving:false,want:-1,angle:Math.PI/2});
+    startTime = performance.now(); finished=false; turns=0; lastDir=-1; wake=[];
+    $('turns').textContent = 0; $('overlay').classList.remove('show'); $('hint').style.opacity = 1;
+  }
+
+  function open(x,y,d){ return cells[y] && cells[y][x] && !cells[y][x].w[d]; }
+
+  function setWant(d){
+    if (finished) return; $('hint').style.opacity = 0;
+    boat.want = d;
+    if (!boat.moving) tryStart();
+    else if (d === (boat.dir+2)%4){ // inversione immediata
+      const px = boat.tx - DX[boat.dir], py = boat.ty - DY[boat.dir]; // cella da cui arriva
+      boat.dir = d; boat.tx = px; boat.ty = py; boat.want = -1; countTurn(d);
+    }
+  }
+  function countTurn(d){ if (lastDir!==-1 && d!==lastDir){ turns++; $('turns').textContent = turns; } lastDir = d; }
+
+  function tryStart(){
+    const d = boat.want; if (d<0) return;
+    const cx = Math.round(boat.x), cy = Math.round(boat.y);
+    if (open(cx,cy,d) && (d!==0 || cy>0)){
+      boat.dir = d; boat.tx = cx+DX[d]; boat.ty = cy+DY[d]; boat.moving = true; boat.want=-1; countTurn(d);
+    }
+  }
+
+  function step(dt){
+    if (!boat.moving) return;
+    const speed = 5.5; // celle al secondo
+    const ddx = boat.tx-boat.x, ddy = boat.ty-boat.y, dist = Math.hypot(ddx,ddy);
+    const mv = speed*dt;
+    if (mv >= dist){
+      boat.x = boat.tx; boat.y = boat.ty;
+      if (boat.y===rows-1 && boat.x===cols-1 && boat.dir===2){ win(); return; }
+      // arrivato al centro: prova la svolta richiesta, altrimenti prosegui
+      if (boat.want>=0 && open(boat.x,boat.y,boat.want) && !(boat.want===0&&boat.y===0)){
+        boat.dir = boat.want; boat.want=-1; countTurn(boat.dir);
+      }
+      if (open(boat.x,boat.y,boat.dir) && !(boat.dir===0&&boat.y===0)){
+        boat.tx = boat.x+DX[boat.dir]; boat.ty = boat.y+DY[boat.dir];
+      } else boat.moving = false;
+    } else { boat.x += ddx/dist*mv; boat.y += ddy/dist*mv; }
+    if (!reduced && Math.random()<0.5) wake.push({x:boat.x,y:boat.y,t:0});
+  }
+
+  function win(){
+    boat.moving=false; finished=true;
+    const s = Math.round((performance.now()-startTime)/1000);
+    $('result').textContent = `${fmt(s)} e ${turns} svolte`;
+    $('overlay').classList.add('show');
+  }
+  const fmt = s => `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+
+  // ---- render ----
+  function draw(t){
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    ctx.clearRect(0,0,W,H);
+    // sabbia
+    ctx.fillStyle = css('--sand'); ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = css('--sand-dark');
+    for (let i=0;i<60;i++){ const sx=(i*137.5)%W, sy=(i*89.3)%H; ctx.globalAlpha=.25; ctx.beginPath(); ctx.arc(sx,sy,1.2,0,7); ctx.fill(); }
+    ctx.globalAlpha=1;
+    // bordo scuro canale
+    ctx.save(); ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=6; ctx.shadowOffsetY=2;
+    ctx.fillStyle = css('--water-deep'); ctx.fill(waterPath); ctx.restore();
+    // acqua
+    ctx.save(); ctx.clip(waterPath);
+    const g = ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,css('--water')); g.addColorStop(1,css('--water-deep'));
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    // onde
+    ctx.strokeStyle='rgba(255,255,255,.28)'; ctx.lineWidth=1.5;
+    const ph = reduced ? 0 : t/900;
+    for (let y=-10; y<H+10; y+=cell*0.45){
+      ctx.beginPath();
+      for (let x=0;x<=W;x+=6){ const yy = y + Math.sin(x/18 + ph + y*0.05)*2.2; x?ctx.lineTo(x,yy):ctx.moveTo(x,yy); }
+      ctx.stroke();
+    }
+    // scia
+    wake = wake.filter(w => (w.t+=1/60) < 1.2);
+    for (const w of wake){ ctx.globalAlpha=(1-w.t/1.2)*.5; ctx.fillStyle='#fff'; ctx.beginPath();
+      ctx.arc(ox+(w.x+.5)*cell, oy+(w.y+.5)*cell, 2+w.t*cell*0.18, 0, 7); ctx.fill(); }
+    ctx.globalAlpha=1; ctx.restore();
+
+    // ingresso / uscita
+    const ex = ox+(cols-.5)*cell, ey = oy+rows*cell+6;
+    ctx.fillStyle=css('--coral'); ctx.beginPath(); ctx.moveTo(ex-1,ey-4); ctx.lineTo(ex-1,ey-cell*.55); ctx.lineTo(ex+cell*.32,ey-cell*.42); ctx.lineTo(ex-1,ey-cell*.3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=css('--ink'); ctx.fillRect(ex-2, ey-cell*.55, 2, cell*.55);
+    ctx.font=`800 ${Math.max(10,cell*.32)}px Nunito, sans-serif`; ctx.fillStyle=css('--ink'); ctx.textAlign='center';
+    ctx.fillText('uscita', ex, ey+cell*.33);
+    ctx.fillText('partenza', ox+cell*.5, oy-6);
+
+    // barca
+    const bx = ox+(boat.x+.5)*cell, by = oy+(boat.y+.5)*cell;
+    const target = boat.dir*Math.PI/2 - Math.PI/2;
+    let da = target - boat.angle; da = Math.atan2(Math.sin(da), Math.cos(da));
+    boat.angle += reduced ? da : da*0.25;
+    const s = cell*0.36, bob = reduced?0:Math.sin(t/400)*1.2;
+    ctx.save(); ctx.translate(bx, by+bob); ctx.rotate(boat.angle);
+    ctx.shadowColor='rgba(0,0,0,.35)'; ctx.shadowBlur=5; ctx.shadowOffsetY=2;
+    ctx.fillStyle='#C8742F'; ctx.beginPath();          // scafo
+    ctx.moveTo(s,0); ctx.quadraticCurveTo(s*.2,s*.62,-s*.75,s*.5); ctx.lineTo(-s*.75,-s*.5); ctx.quadraticCurveTo(s*.2,-s*.62,s,0); ctx.fill();
+    ctx.shadowColor='transparent';
+    ctx.fillStyle='#F2D9B5'; ctx.beginPath();           // coperta
+    ctx.moveTo(s*.7,0); ctx.quadraticCurveTo(s*.15,s*.38,-s*.55,s*.3); ctx.lineTo(-s*.55,-s*.3); ctx.quadraticCurveTo(s*.15,-s*.38,s*.7,0); ctx.fill();
+    ctx.fillStyle='#FFFFFF'; ctx.beginPath();           // vela
+    ctx.moveTo(-s*.1,-s*.05); ctx.lineTo(s*.45,-s*.05); ctx.lineTo(-s*.1,-s*.75); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=css('--ink'); ctx.fillRect(-s*.12,-s*.75,s*.06,s*.85); // albero
+    ctx.restore();
+  }
+
+  let last=0;
+  function loop(t){ const dt=Math.min((t-last)/1000,.05); last=t; step(dt); draw(t);
+    if (!finished) $('time').textContent = fmt(Math.floor((t-startTime)/1000)); requestAnimationFrame(loop); }
+
+  // ---- input ----
+  const btn = {up:0,right:1,down:2,left:3};
+  for (const id in btn){ const b=$(id);
+    b.addEventListener('pointerdown', e=>{ e.preventDefault(); setWant(btn[id]); b.classList.add('on'); });
+    b.addEventListener('pointerup', ()=>b.classList.remove('on'));
+    b.addEventListener('pointerleave', ()=>b.classList.remove('on'));
+  }
+  addEventListener('keydown', e=>{ const k={ArrowUp:0,ArrowRight:1,ArrowDown:2,ArrowLeft:3,w:0,d:1,s:2,a:3}[e.key];
+    if (k!==undefined){ e.preventDefault(); setWant(k); } });
+  let sx,sy;
+  canvas.addEventListener('pointerdown', e=>{ sx=e.clientX; sy=e.clientY; });
+  canvas.addEventListener('pointerup', e=>{ if (sx==null) return; const dx=e.clientX-sx, dy=e.clientY-sy; sx=null;
+    if (Math.hypot(dx,dy)<18) return; setWant(Math.abs(dx)>Math.abs(dy) ? (dx>0?1:3) : (dy>0?2:0)); });
+  $('new').addEventListener('click', newGame);
+  $('again').addEventListener('click', newGame);
+  // URL del gioco "Chiusi nella Pieve" (chiesa di San Pietro): modifica qui
+  const NEXT_URL = './chiesa/index.html';
+  $('next').addEventListener('click', ()=>{ location.href = NEXT_URL; });
+  $('lvl').addEventListener('click', ()=>{ level=(level+1)%LEVELS.length; newGame(); });
+  addEventListener('resize', layout);
+
+  newGame(); requestAnimationFrame(t=>{ last=t; startTime=t; loop(t); });
+})();
+</script>
+</body>
+</html>
